@@ -1,8 +1,11 @@
 # Advanced Analytics in Business [D0S07a] Assignment
 ## ChurnRate
 
-The goal is to construct a predictive model to predict whether a customer will churn or not
+The goal is to construct a predictive model to predict whether a customer will churn or not. 
 
+_We are scored on best AUC score._ 
+
+## Data
 The data set describes a churn setting for telco customers of a Latin-American telco provider. The label ("CHURN") describes a binary target established as follows:
 
 Customer still at the company by end of December 2013: CHURN = 0
@@ -10,7 +13,7 @@ Customer left the company in December 2013: CHURN = 1
 The state of the features was extracted based on the situation at the end of October 2013. The prediction is hence set up to predict churn with a 1 month "action period". Customers which churned during the course of November were filtered out from the data set
 The data set was then randomly split into a train and test split.
 
-Features:
+### Features:
 
 ID: customer identifier
 CHURN: binary target
