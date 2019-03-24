@@ -1,0 +1,165 @@
+---
+title: "Version 3"
+output: html_notebook
+---
+
+I have issues with the xg boost. here i try to do the exact same steps for preprocessing
+
+# loading data
+```{r eval=FALSE, include=FALSE}
+setwd("C:/Users/D/Desktop/Stats/sem4/Big data and platforms/Churn")
+library(dplyr)
+telco <- read.csv("telco_train.csv")
+
+```
+
+# same data prep
+loaded in previous page
+
+```{r include=FALSE}
+# train has to be changed by the imputed data.
+attach(telco)
+Payment_Delay_level <- mutate(telco, Payment_Delay_level = ifelse(COUNT_PAYMENT_DELAYS_1YEAR <= 4,1,
+                                   ifelse(COUNT_PAYMENT_DELAYS_1YEAR %in% 5:8, 2,
+                                   ifelse(COUNT_PAYMENT_DELAYS_1YEAR >= 8, 3, 0 ))))
+
+      
+hist(Payment_Delay_level$Payment_Delay_level)
+telco$Payment_Delay_level <- Payment_Delay_level$Payment_Delay_level
+
+hist(CLV)
+summary(CLV)
+
+CLV_level <- mutate(telco, CLV_level = ifelse(CLV < 11398 , 1,
+                          ifelse(CLV %in% 11398:16891, 2,
+                          ifelse(CLV >= 16892, 3 ,0 ))))
+
+hist(CLV_level$CLV_level)
+
+telco$CLV_Level <- CLV_level$CLV_level
+
+telco$delta_m3_m6 <- COMPLAINT_3MONTHS-COMPLAINT_6MONTHS
+telco$delta_m1_m3 <- COMPLAINT_1MONTH-COMPLAINT_3MONTHS
+
+dt1 <- as.Date("2013-12-1")
+telco$Time_Customer <- difftime(dt1, START_DATE, units = "weeks")
+
+attach(telco)
+telco$Time_Customer <- as.numeric(Time_Customer)
+```
+
+# removing some features 
+```{r}
+telco$ID <- NULL # ID has no value 
+telco$FIN_STATE <- NULL # too many missings
+telco$START_DATE <- NULL # we took weeks client instead
+```
+
+# prepping for xgboost
+
+*I need to get the pc to understand that CHURN is my outcome and somehow split it from the data. otherwise tis machine will obviously only use churn to predict churn, that is why the training is so accurate.*
+
+```{r matrix and data split}
+train.num <- as.data.frame(lapply(telco, as.numeric))
+train.matrix <- data.matrix(train.num)
+
+# Something needs to be done with the Label data. 
+sparse.matrix(data = train.num)[,-1]
+train.num[,CHURN] == "Marked"
+
+
+# Labels
+Churn.Labels <- train.matrix[,1]
+
+# Removing the label from the dataset
+
+
+
+# get the numb 70/30 training test split
+numberOfTrainingSamples <- round(length(Churn.Labels) * .7)
+
+# training data
+train_data <- train.matrix[1:numberOfTrainingSamples,]
+train_labels <- Churn.Labels[1:numberOfTrainingSamples]
+
+# testing data
+test_data <- train.matrix[-(1:numberOfTrainingSamples),]
+test_labels <- Churn.Labels[-(1:numberOfTrainingSamples)]
+
+# Converting again but now to XG 
+dtrain <- xgb.DMatrix(data = train_data, label= train_labels)
+dtest <- xgb.DMatrix(data = test_data, label= test_labels)
+
+```
+
+## Balance the outcome 
+
+```{r}
+hist(train_labels)
+```
+
+
+
+```{r}
+negative_cases <- sum(train_labels == 0)
+
+postive_cases <- sum(train_labels == 1)
+cbind(negative_cases,postive_cases)
+
+scale_pos_weight <- negative_cases/postive_cases
+
+```
+
+# xgboost
+## model 1
+```{r}
+library(xgboost)
+xg.m1 <- xgboost(data = dtrain, # the data   
+                 nround = 5, # max number of boosting iterations
+                 objective = "binary:logistic",  # the objective function
+                 verbose = 2,
+                 missing = NA,
+                 max.depth = c(2, 4, 6, 8),
+                 eta = c(0.1, 0.5),
+                 classProbs = TRUE # gives the AUC
+                 )
+
+```
+
+The training error is 0 again. seems to good to be true. Strange. 
+
+```{r test error of this fellow.}
+# generate predictions for our held-out testing data
+pred <- predict(xg.m1, dtest)
+
+# get & print the classification error
+err <- mean(as.numeric(pred > 0.5) != test_labels)
+print(paste("test-error=", err))
+```
+Again zero. Stranger still. 
+ 
+```{r}
+
+xg.m2 <- xgboost(data = dtrain,
+        label = test_labels,
+        max.depth = 5,
+        eta = 1,
+        nthread = 2, 
+        nrounds = 3,
+        objective = "binary:logistic",
+        scale_pos_weight = negative_cases/postive_cases
+        
+        )
+
+```
+
+## Importance of Features 
+```{r}
+importance_matrix <- xgb.importance(names(train.matrix), model = xg.m1)
+
+# and plot it!
+xgb.plot.importance(importance_matrix)
+```
+
+
+
