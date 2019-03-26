@@ -5,6 +5,11 @@ The goal is to construct a predictive model to predict whether a customer will c
 
 _We are scored on best AUC score._ 
 
+## Uploading a result
+
+we are group 7 
+our pw: featspaw 
+
 ## Data
 The data set describes a churn setting for telco customers of a Latin-American telco provider. The label ("CHURN") describes a binary target established as follows:
 
