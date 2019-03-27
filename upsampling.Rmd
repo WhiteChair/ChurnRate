@@ -1,0 +1,115 @@
+---
+title: "Balancing"
+output: html_notebook
+---
+
+# Unbalanced 
+
+```{r}
+library(unbalanced)
+```
+
+
+```{r}
+set.seed(420)
+n <- ncol(train_data)
+attach(train_data)
+output <- CHURN
+input <- train_data[ ,-2]
+
+# Doing a race for the best method
+ubConf <- list(percOver=250, percUnder=150, k=1, perc=50, method="percPos", w=NULL)
+
+results <- ubRacing(CHURN ~., train_data, "randomForest", positive=1, 
+                    metric="auc", ubConf=ubConf, ntree=10)
+
+
+# Apply oversampling
+data_over <- ubBalance(X = input, Y = output, type="ubOver", k = 0)
+data_CNN <- ubBalance(X = input, Y = output, type="ubCNN", k = 1)
+
+#oversampled dataset
+overData <- data.frame(data_over$X, Class=data_over$Y)
+ubcnnData <- data.frame(data_CNN$X, Class=data_CNN$Y)
+#check the frequency of the target variable after the different samplings
+summary(overData$Class)
+summary(ubcnnData$Class)
+
+```
+
+# Building different random forests based on the different samples
+```{r over sampling}
+rf.over <- randomForest(Class ~ ., 
+                        data =  overData, 
+                        importance = T,
+                        confusion = T,
+                        ntree = 300,
+                        type = classification) 
+
+#predict on the testing set
+pred_rf.over <- predict(rf.over, newdata = test_data, type="prob")
+#confusion matrix
+pred_rf.over <- as.data.frame(pred_rf.over)
+cm.1 <- table(pred_rf.over$`1`, test_data$CHURN)
+
+(sum(diag(cm.1)))/sum(cm.1)
+accuracy <- (sum(diag(cm.1)))/sum(cm.1)
+accuracy
+
+rf.over$confusion
+
+rf.roc<-roc(test_data$CHURN,pred_rf.over$`1`)
+plot(rf.roc)
+auc(rf.roc)
+
+```
+
+```{r}
+rf.cnn <- randomForest(Class ~ ., 
+                        data =  ubcnnData, 
+                        importance = T,
+                        confusion = T,
+                        ntree = 300,
+                        type = classification) 
+
+
+#predict on the testing set
+pred_rf.cnn <- predict(rf.cnn, newdata = test_data, type="prob")
+#confusion matrix
+pred_rf.cnn <- as.data.frame(pred_rf.cnn)
+cm.1 <- table(pred_rf.cnn$`1`, test_data$CHURN)
+
+(sum(diag(cm.1)))/sum(cm.1)
+accuracy <- (sum(diag(cm.1)))/sum(cm.1)
+accuracy
+
+rf.over$confusion
+
+rf.roc<-roc(test_data$CHURN,pred_rf.over$`1`)
+plot(rf.roc)
+auc(rf.roc)
+
+
+```
+
+# TEST 
+
+TEST data has to be prepared like training data.
+
+```{r}
+# Prediction
+Pred_rf.over_TEST <- predict(rf.over, newdata=TEST, type='prob')
+
+# getting the values out 
+
+prediction <- Pred_rf.over_TEST[,2]
+rf.over.TEST.result <- cbind(TEST$ID, prediction)
+rf.over.TEST.result <- as.data.frame(rf.over.TEST.result)
+```
+
+# get the excel out 
+```{r}
+write.xlsx(rf.over.TEST.result , "C:/Users/D/Desktop/Stats/sem4/Big data and platforms/Churn")
+```
+
+
