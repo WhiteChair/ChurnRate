@@ -26,14 +26,20 @@ results <- ubRacing(CHURN ~., train_data, "randomForest", positive=1,
 
 # Apply oversampling
 data_over <- ubBalance(X = input, Y = output, type="ubOver", k = 0)
+data_under <- ubBalance(X = input, Y = output, type="ubUnder", perc=50,  method="percPos", k = 0)
 data_CNN <- ubBalance(X = input, Y = output, type="ubCNN", k = 1)
-
-#oversampled dataset
+data_ubSMOTE <- ubBalance(X = input, Y = output, type="ubSMOTE", percOver=200, percUnder=150)
+# saving as df's
 overData <- data.frame(data_over$X, Class=data_over$Y)
+data_under <- data.frame(data_under$X, Class=data_under$Y)
 ubcnnData <- data.frame(data_CNN$X, Class=data_CNN$Y)
+data_ubSMOTE <- data.frame(data_ubSMOTE$X, Class=data_ubSMOTE$Y)
+
 #check the frequency of the target variable after the different samplings
 summary(overData$Class)
+summary(data_under$Class)
 summary(ubcnnData$Class)
+summary(data_ubSMOTE$Class)
 
 ```
 
@@ -64,7 +70,35 @@ auc(rf.roc)
 
 ```
 
-```{r}
+```{r undersampling}
+
+rf.under <- randomForest(Class ~ ., 
+                        data =  data_under, 
+                        importance = T,
+                        confusion = T,
+                        ntree = 300,
+                        type = classification) 
+
+#predict on the testing set
+pred_rf.under <- predict(rf.under, newdata = test_data, type="prob")
+#confusion matrix
+pred_rf.under <- as.data.frame(pred_rf.under)
+cm.1 <- table(pred_rf.under$`1`, test_data$CHURN)
+
+(sum(diag(cm.1)))/sum(cm.1)
+accuracy <- (sum(diag(cm.1)))/sum(cm.1)
+accuracy
+
+rf.under$confusion
+
+rf.roc<-roc(test_data$CHURN,pred_rf.under$`1`)
+plot(rf.roc)
+auc(rf.roc)
+
+```
+
+
+```{r rf.cnn}
 rf.cnn <- randomForest(Class ~ ., 
                         data =  ubcnnData, 
                         importance = T,
@@ -83,7 +117,7 @@ cm.1 <- table(pred_rf.cnn$`1`, test_data$CHURN)
 accuracy <- (sum(diag(cm.1)))/sum(cm.1)
 accuracy
 
-rf.over$confusion
+rf.cnn$confusion
 
 rf.roc<-roc(test_data$CHURN,pred_rf.over$`1`)
 plot(rf.roc)
@@ -92,24 +126,51 @@ auc(rf.roc)
 
 ```
 
+```{r ubSMOTE}
+
+rf.ubSMOTE <- randomForest(Class ~ ., 
+                        data =  data_ubSMOTE, 
+                        importance = T,
+                        confusion = T,
+                        ntree = 300,
+                        type = classification) 
+
+#predict on the testing set
+pred_rf.ubSMOTE <- predict(rf.ubSMOTE, newdata = test_data, type="prob")
+#confusion matrix
+pred_rf.ubSMOTE <- as.data.frame(pred_rf.ubSMOTE)
+cm.1 <- table(pred_rf.ubSMOTE$`1`, test_data$CHURN)
+
+(sum(diag(cm.1)))/sum(cm.1)
+accuracy <- (sum(diag(cm.1)))/sum(cm.1)
+accuracy
+
+rf.ubSMOTE$confusion
+
+rf.roc<-roc(test_data$CHURN,pred_rf.ubSMOTE$`1`)
+plot(rf.roc)
+auc(rf.roc)
+```
+
+
+
 # TEST 
 
 TEST data has to be prepared like training data.
 
 ```{r}
-# Prediction
-Pred_rf.over_TEST <- predict(rf.over, newdata=TEST, type='prob')
+# Prediction (only change the first entery of the predict function)
+Pred_TEST <- predict(rf.ubSMOTE, newdata=TEST, type='prob')
 
 # getting the values out 
 
-prediction <- Pred_rf.over_TEST[,2]
-rf.over.TEST.result <- cbind(TEST$ID, prediction)
-rf.over.TEST.result <- as.data.frame(rf.over.TEST.result)
+prediction <- Pred_TEST[,2]
+TEST.result <- cbind(TEST$ID, prediction)
+TEST.result <- as.data.frame(TEST.result)
 ```
 
 # get the excel out 
 ```{r}
-write.xlsx(rf.over.TEST.result , "C:/Users/D/Desktop/Stats/sem4/Big data and platforms/Churn")
+write.xlsx(TEST.result , "C:/Users/D/Desktop/Stats/sem4/Big data and platforms/Churn")
 ```
-
 
