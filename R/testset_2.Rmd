@@ -1,0 +1,82 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# loading data
+```{r eval=FALSE, include=FALSE}
+setwd("C:/Users/D/Desktop/Stats/sem4/Big data and platforms/Churn")
+library(dplyr)
+test <- read.csv("telco_test.csv")
+attach(test)
+
+summary(test)
+```
+
+# same data prep
+
+```{r include=FALSE}
+# train has to be changed by the imputed data.
+Payment_Delay_level <- mutate(test, Payment_Delay_level = ifelse(COUNT_PAYMENT_DELAYS_1YEAR <= 4,1,
+                                   ifelse(COUNT_PAYMENT_DELAYS_1YEAR %in% 5:8, 2,
+                                   ifelse(COUNT_PAYMENT_DELAYS_1YEAR >= 8, 3, 0 ))))
+
+      
+hist(Payment_Delay_level$Payment_Delay_level)
+test$Payment_Delay_level <- Payment_Delay_level$Payment_Delay_level
+
+hist(CLV)
+summary(CLV)
+
+CLV_level <- mutate(test, CLV_level = ifelse(CLV < 11398 , 1,
+                          ifelse(CLV %in% 11398:16891, 2,
+                          ifelse(CLV >= 16892, 3 ,0 ))))
+
+hist(CLV_level$CLV_level)
+
+test$CLV_Level <- CLV_level$CLV_level
+
+test$delta_m3_m6 <- COMPLAINT_3MONTHS-COMPLAINT_6MONTHS
+test$delta_m1_m3 <- COMPLAINT_1MONTH-COMPLAINT_3MONTHS
+
+dt1 <- as.Date("2013-12-1")
+test$Time_Customer <- difftime(dt1, START_DATE, units = "weeks")
+
+attach(test)
+test$Time_Customer <- as.numeric(Time_Customer)
+```
+
+# removing some features 
+```{r}
+test$ID <- NULL # ID has no value 
+test$FIN_STATE <- NULL # too many missings
+test$START_DATE <- NULL # we took weeks client instead
+```
+
+# prepping for xgboost
+```{r}
+test <- as.data.frame(lapply(test, as.numeric))
+test.xg <- as.matrix(test)
+test.label <- test.xg[,2]
+
+summary(test.label)
+
+```
+
+# model 
+```{r}
+library(xgboost)
+
+
+
+xg.test <- xgboost(data = test.xg,
+        label = label,
+        max.depth = 5,
+        eta = 1,
+        nthread = 2, 
+        nrounds = 3,
+        objective = "binary:logistic"
+        
+        )
+
+```
+
