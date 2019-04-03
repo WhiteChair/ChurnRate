@@ -264,7 +264,7 @@ train_sub_std_up1 <- data.frame(data_over_std$X, CHURN = data_over_std$Y)
 write.csv(train_sub, "Data/train_sub.csv", row.names = F)
 write.csv(train_sub_std, "Data/train_sub_std.csv", row.names = F)
 write.csv(train_sub_up1, "Data/train_sub_up.csv", row.names = F)
-write.csv(train_sub_std_up1, "Data/train_sub_std1_up.csv", row.names = F)
+write.csv(train_sub_std_up1, "Data/train_sub_std_up.csv", row.names = F)
 
 #' Testing dataset
 write.csv(test_sub, "Data/test_sub.csv", row.names = F)
