@@ -41,6 +41,9 @@ test$FIN_STATE <- as.factor(test$FIN_STATE)
 summary(training) # It is important to standardize continuous variables
 
 #' Multivariate
+#' Correlation matrix
+pairs(training[,5:15], col = training$CHURN) # In some variables there's a clear difference
+
 #' PCA on only original continuous variables
 pca <- prcomp(as.matrix(training[,-c(1:4,38:42, 44:46)]), scale. = T)
 summary(pca) # 20 PCs retain 90% of the variability
