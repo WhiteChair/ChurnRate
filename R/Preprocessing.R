@@ -244,7 +244,7 @@ train_sub_up1 <- data.frame(data_over$X, CHURN = data_over$Y)
 
 # Standardized dataset
 set.seed(12345)
-data_over_std <- ubBalance(X = train_sub[,-36], Y = train_sub$CHURN, 
+data_over_std <- ubBalance(X = train_sub_std[,-36], Y = train_sub_std$CHURN, 
                        type = "ubOver", k = 0)
 train_sub_std_up1 <- data.frame(data_over_std$X, CHURN = data_over_std$Y)
 
