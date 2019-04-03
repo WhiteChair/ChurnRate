@@ -104,7 +104,7 @@ test$delta_m1_m3 <- test$COMPLAINT_1MONTH - test$COMPLAINT_3MONTHS
 #--
 #' START_DATE
 #' Compute the number of days since the customer joined the telco provider
-#' Here I changed the reference date that Donald have according to the wording
+#' Here I changed the reference date that Donald had according to the wording
 #' of the problem
 #' Training dataset
 end_date <- as.Date("2013-10-31", format = "%Y-%m-%d")
@@ -211,26 +211,65 @@ test$AVG_DATA_3MONTH <- ifelse(is.na(test$AVG_DATA_3MONTH),
                                    0, test$AVG_DATA_3MONTH)
 
 
+#---- 
+#' Continous variables standardized
+# names(train_sub)
+# names(test_sub)
+# names(test)
+# Compute mean and sd of each column
+preproc <- preProcess(train_sub[,-c(1:5, 39:43, 45:46)], 
+                            method = c("center", "scale"))
+
+# Standardize variables
+train_sub_std <- predict(preproc, train_sub[,-c(1:5, 39:43, 45:46)])
+test_sub_std <- predict(preproc, test_sub[,-c(1:5, 39:43, 45:46)])
+test_std <- predict(preproc, test[,-c(1:4, 38:42, 44:45)])
+
+# Paste original categorical variables
+train_sub_std <- cbind(train_sub_std, train_sub[,1:5])
+test_sub_std <- cbind(test_sub_std, test_sub[,1:5])
+test_std <- cbind(test_std, test[,1:5])
+
+# identical(names(train_sub[,-c(1:5, 39:43, 45:46)]),
+#           names(test_sub[,-c(1:5, 39:43, 45:46)]))
+# identical(names(train_sub[,-c(1:5, 39:43, 45:46)]),
+#           names(test[,-c(1:4, 38:42, 44:45)]))
+ 
 #' Upsampling (only in training dataset)
 #' Using unbalanced package
 set.seed(12345)
 data_over <- ubBalance(X = train_sub[,-2], Y = train_sub$CHURN, 
                        type = "ubOver", k = 0)
 train_sub_up1 <- data.frame(data_over$X, CHURN = data_over$Y)
+
+# Standardized dataset
+set.seed(12345)
+data_over_std <- ubBalance(X = train_sub[,-36], Y = train_sub$CHURN, 
+                       type = "ubOver", k = 0)
+train_sub_std_up1 <- data.frame(data_over_std$X, CHURN = data_over_std$Y)
+
+#identical(rownames(train_sub_up1), rownames(train_sub_std_up1)) # OK
+
 # head(overData)
 # table(train_sub_up1$CHURN)
+# table(train_sub_std_up1$CHURN)
 
 #' Using caret package
-set.seed(12345)
-train_sub_up2 <- upSample(x = train_sub[,-2], y = train_sub$CHURN, list = F, 
-                          yname = "CHURN")
+# set.seed(12345)
+# train_sub_up2 <- upSample(x = train_sub[,-2], y = train_sub$CHURN, list = F, 
+#                           yname = "CHURN")
 
 #' Exporting dataset
 #' Training dataset
 write.csv(train_sub, "Data/train_sub.csv", row.names = F)
+write.csv(train_sub_std, "Data/train_sub_std.csv", row.names = F)
 write.csv(train_sub_up1, "Data/train_sub_up.csv", row.names = F)
+write.csv(train_sub_std_up1, "Data/train_sub_std1_up.csv", row.names = F)
+
 #' Testing dataset
 write.csv(test_sub, "Data/test_sub.csv", row.names = F)
+write.csv(test_sub_std, "Data/test_sub_std.csv", row.names = F)
 
 #' Test dataset
 write.csv(test, "Data/test_preprocessed.csv", row.names = F)
+write.csv(test_std, "Data/test_preprocessed_std.csv", row.names = F)
