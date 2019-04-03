@@ -224,11 +224,16 @@ preproc <- preProcess(train_sub[,-c(1:5, 39:43, 45:46)],
 train_sub_std <- predict(preproc, train_sub[,-c(1:5, 39:43, 45:46)])
 test_sub_std <- predict(preproc, test_sub[,-c(1:5, 39:43, 45:46)])
 test_std <- predict(preproc, test[,-c(1:4, 38:42, 44:45)])
+# identical(names(train_sub[,-c(1:5, 39:43, 45:46)]),
+#           names(test_sub[,-c(1:5, 39:43, 45:46)])) # OK
+# identical(names(train_sub[,-c(1:5, 39:43, 45:46)]),
+#           names(test[,-c(1:4, 38:42, 44:45)])) # OK
+
 
 # Paste original categorical variables
 train_sub_std <- cbind(train_sub_std, train_sub[,1:5])
 test_sub_std <- cbind(test_sub_std, test_sub[,1:5])
-test_std <- cbind(test_std, test[,1:5])
+test_std <- cbind(test_std, test[,1:4])
 
 # identical(names(train_sub[,-c(1:5, 39:43, 45:46)]),
 #           names(test_sub[,-c(1:5, 39:43, 45:46)]))
@@ -241,14 +246,17 @@ set.seed(12345)
 data_over <- ubBalance(X = train_sub[,-2], Y = train_sub$CHURN, 
                        type = "ubOver", k = 0)
 train_sub_up1 <- data.frame(data_over$X, CHURN = data_over$Y)
+# setdiff(names(train_sub), names(train_sub_up1)) #OK
 
 # Standardized dataset
 set.seed(12345)
 data_over_std <- ubBalance(X = train_sub_std[,-36], Y = train_sub_std$CHURN, 
                        type = "ubOver", k = 0)
 train_sub_std_up1 <- data.frame(data_over_std$X, CHURN = data_over_std$Y)
+setdiff(names(train_sub_std), names(train_sub_std_up1)) #OK
 
-#identical(rownames(train_sub_up1), rownames(train_sub_std_up1)) # OK
+# Check upsampling is the same in both datasets
+identical(rownames(train_sub_up1), rownames(train_sub_std_up1)) # OK
 
 # head(overData)
 # table(train_sub_up1$CHURN)
