@@ -241,6 +241,10 @@ test_std <- cbind(test_std, test[,1:4])
 #           names(test[,-c(1:4, 38:42, 44:45)]))
  
 #' Upsampling (only in training dataset)
+#' If upsampling is done randomly (instead of SMOTE), it does not matter if the
+#' standardization is before or after (although not proven yet)
+#' In this cases all preprocessing is done before upsampling
+#' https://stats.stackexchange.com/questions/363312/normalization-standardization-should-one-do-this-before-oversampling-undersampl
 #' Using unbalanced package
 set.seed(12345)
 data_over <- ubBalance(X = train_sub[,-2], Y = train_sub$CHURN, 
@@ -257,7 +261,7 @@ setdiff(names(train_sub_std), names(train_sub_std_up1)) #OK
 
 # Check upsampling is the same in both datasets
 identical(rownames(train_sub_up1), rownames(train_sub_std_up1)) # OK
-
+# View(skim_to_wide(train_sub_std_up1))
 # head(overData)
 # table(train_sub_up1$CHURN)
 # table(train_sub_std_up1$CHURN)
@@ -265,7 +269,7 @@ identical(rownames(train_sub_up1), rownames(train_sub_std_up1)) # OK
 #' Using caret package
 # set.seed(12345)
 # train_sub_up2 <- upSample(x = train_sub[,-2], y = train_sub$CHURN, list = F, 
-#                           yname = "CHURN")
+#                          yname = "CHURN")
 
 #' Exporting dataset
 #' Training dataset

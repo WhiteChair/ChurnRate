@@ -14,9 +14,11 @@ library(ggplot2)
 library(caret)
 library(dplyr)
 library(factoextra) # PCA
+library(skimr)
 
 #' Reading data
-training <- read.table("Data/train_sub_up.csv", sep = ",", dec = ".", header = T)
+training <- read.table("Data/train_sub.csv", sep = ",", dec = ".", header = T)
+# training <- read.table("Data/train_sub_up.csv", sep = ",", dec = ".", header = T)
 testing <- read.table("Data/test_sub.csv", sep = ",", dec = ".", header = T)
 test <- read.table("Data/test_preprocessed.csv", sep = ",", dec = ".", header = T)
 
@@ -39,6 +41,9 @@ test$FIN_STATE <- as.factor(test$FIN_STATE)
 #' Descriptive statistics
 #' Univariate
 summary(training) # It is important to standardize continuous variables
+# Using skimr package
+View(skimmed <- skim_to_wide(training))
+View(skimmed[, c(1:5, 9:11, 13, 15:16)])
 
 #' Multivariate
 #' Correlation matrix

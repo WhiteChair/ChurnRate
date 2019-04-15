@@ -30,84 +30,193 @@ test_std <- read.table("Data/test_preprocessed_std.csv", sep = ",", dec = ".",
 training_std$CHURN <- as.factor(training_std$CHURN)
 testing_std$CHURN <- as.factor(testing_std$CHURN)
 
-#' PREPAID
-training_std$PREPAID <- as.factor(training_std$PREPAID)
-testing_std$PREPAID <- as.factor(testing_std$PREPAID)
-test_std$PREPAID <- as.factor(test_std$PREPAID)
+#' Since there is only one category in both variables, there is no need to
+#' transform to factor variables
+#' #' PREPAID
+#' training_std$PREPAID <- as.factor(training_std$PREPAID)
+#' testing_std$PREPAID <- as.factor(testing_std$PREPAID)
+#' test_std$PREPAID <- as.factor(test_std$PREPAID)
+#' 
+#' #' FINSTATE
+#' training_std$FIN_STATE <- as.factor(training_std$FIN_STATE)
+#' testing_std$FIN_STATE <- as.factor(testing_std$FIN_STATE)
+#' test_std$FIN_STATE <- as.factor(test_std$FIN_STATE)
 
-#' FINSTATE
-training_std$FIN_STATE <- as.factor(training_std$FIN_STATE)
-testing_std$FIN_STATE <- as.factor(testing_std$FIN_STATE)
-test_std$FIN_STATE <- as.factor(test_std$FIN_STATE)
-
+# Store X and Y for later use. Removing Start_Date, ID and Fin_State
+x = training_std[, -c(35, 36, 38, 39)]
+y = training_std$CHURN
 
 #----
+#' Feature importance
+#' Boxplots
+featurePlot(x = training_std[, -c(35, 36, 38, 39)], y = training_std$CHURN, 
+            plot = "box",
+            strip = strip.custom(par.strip.text = list(cex = .7)),
+            scales = list(x = list(relation = "free"), 
+                          y = list(relation = "free")))
+#' Densities
+featurePlot(x = training_std[, -c(35, 36, 38, 39)], y = training_std$CHURN, 
+            plot = "density",
+            strip = strip.custom(par.strip.text = list(cex = .7)),
+            scales = list(x = list(relation = "free"), 
+                          y = list(relation = "free")))
+
+#' Feature selection using recursive feature elimination
+# set.seed(12345)
+# #options(warn = -1)
+# subsets <- c(1:35)
+# 
+# # Using random forest
+# ?rfeControl
+# ctrl <- rfeControl(functions = rfFuncs,
+#                    method = "repeatedcv",
+#                    repeats = 5,
+#                    verbose = FALSE)
+# 
+# (lmProfile <- rfe(x = training_std[, -c(35, 36, 38, 39)], y = training_std$CHURN,
+#                  sizes = subsets,
+#                  rfeControl = ctrl))
+# lmProfile
+
+#----
+#' *Train Control*
+#' 10-fold Crossvalidation
+# fitControl <- trainControl(
+#   method = 'cv',                   # k-fold cross validation
+#   number = 5,                      # number of folds
+#   savePredictions = 'final',       # saves predictions for optimal tuning parameter
+#   classProbs = T,                  # should class probabilities be returned
+#   summaryFunction = twoClassSummary  # results summary function
+# ) 
+
+#' 10-fold Crossvalidation repeated 3 times
+fitControl <- trainControl(
+  method = 'repeatedcv',                   # k-fold cross validation
+  number = 10,                      # number of folds
+  repeats = 3,
+  savePredictions = 'final',       # saves predictions for optimal tuning parameter
+  classProbs = T,                  # should class probabilities be returned
+  summaryFunction = twoClassSummary  # results summary function
+)
+
 #' *Logistic regression*
+#' Replacing levels of CHURN to be used in CARET functions
+levels(training_std$CHURN) <- make.names(levels(factor(training_std$CHURN)))
+levels(testing_std$CHURN) <- make.names(levels(factor(testing_std$CHURN)))
+
 #' Model with only original variables
-# names(training_std)
-# names(training_std[,-c(35, 36, 38)])
-logit_std <- glm(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
-             family = binomial)
-summary(logit_std)
-
-#' Prediction on testing dataset
-logit_std_pred <- predict(logit_std, testing_std, type = "response")  # predicted scores
-
-# ROC 
-logit_std_roc <- roc(testing_std$CHURN, logit_std_pred)
-plot(logit_std_roc)
-pROC::auc(logit_std_roc)
-
-# Confusion matric
-confusionMatrix(data = as.factor(as.numeric(logit_std_pred > 0.5)), 
-                reference = testing$CHURN)
-
-#' Lasso logistic
-#' Transform from data.frame to matrix
-x_std <- model.matrix(CHURN ~ ., data = training_std[,-c(35, 36, 38)])[,-1]
-#' Transform response to numeric
-y_std <- ifelse(training_std$CHURN == 0, 0, 1)
-
-#' Cross-validation to find the best lambda
+modelLookup("glm")
 set.seed(12345)
-lambda_std_l1 <- cv.glmnet(x_std, y_std, alpha = 1, family = "binomial")
-logit_std_l1 <- glmnet(x_std, y_std, alpha = 1, family = "binomial", 
-                   lambda = lambda_std_l1$lambda.min)
-coef(logit_std_l1)
+logit <- train(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
+               method = "glm", trControl = fitControl, metric = "ROC", 
+               family = "binomial")
+summary(logit)
+
+#' Variable importance
+logit_varimp <- varImp(logit)
+plot(logit_varimp, main = "Variable Importance - Logit")
 
 #' Prediction on testing dataset
-testing_std <- testing_std[, names(training_std)]
-# identical(names(training_std[,-c(35, 36, 38)]),
-#           names(testing_std[,-c(35, 36, 38)])) # OK
-x_testing_std <- model.matrix(CHURN ~ ., 
-                          data = testing_std[,-c(35, 36, 38)])[,-1]
-logit_std_l1_pred <- predict(logit_std_l1, x_testing_std, type = "response", 
-                         s = lambda_std_l1$lambda.min)
+logit_pred_prob <- predict(logit, testing_std, type = "prob")  # predicted scores
+logit_pred <- predict(logit, testing_std)  # predicted class
+
+# Confusion matrix
+confusionMatrix(data = logit_pred, reference = testing_std$CHURN, 
+                mode = "everything", positive = "X1")
+
 # ROC 
-logit_std_l1_roc <- roc(testing_std$CHURN, as.numeric(logit_std_l1_pred))
-plot(logit_std_l1_roc)
-pROC::auc(logit_std_l1_roc)
+(logit_roc <- roc(testing_std$CHURN, logit_pred_prob$X1))
+plot(logit_roc)
 
-# Confusion matric
-confusionMatrix(data = as.factor(as.numeric(logit_std_l1_pred > 0.5)), 
-                reference = testing$CHURN)
 
-#' Ridge logistic
-#' Cross-validation to find the best lambda
+#' *Lasso logistic*
+#' http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/#ridge-regression
+getModelInfo("glmnet")
+modelLookup("glmnet")
 set.seed(12345)
-lambda_std_l2 <- cv.glmnet(x_std, y_std, alpha = 0, family = "binomial")
-logit_std_l2 <- glmnet(x_std, y_std, alpha = 0, family = "binomial", 
-                   lambda = lambda_std_l2$lambda.min)
-coef(logit_std_l2)
+lasso <- train(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
+               method = "glmnet", trControl = fitControl, metric = "ROC",
+               family = "binomial",
+               tuneGrid = expand.grid(.alpha = 1, 
+                                      .lambda = seq(0, 2, by = 0.05)))
+lasso
+lasso$bestTune
+
+# Coefficient of the final model. You need
+# to specify the best lambda
+coef(lasso$finalModel, lasso$bestTune$lambda)
+
+#' Variable importance
+lasso_varimp <- varImp(lasso)
+plot(lasso_varimp, main = "Variable Importance - Lasso")
 
 #' Prediction on testing dataset
-logit_std_l2_pred <- predict(logit_std_l2, x_testing_std, type = "response", 
-                         s = lambda_std_l2$lambda.min)
-# ROC 
-logit_std_l2_roc <- roc(testing_std$CHURN, as.numeric(logit_std_l2_pred))
-plot(logit_std_l2_roc)
-pROC::auc(logit_std_l2_roc)
+lasso_pred_prob <- predict(lasso, testing_std, type = "prob")  # predicted scores
+lasso_pred <- predict(lasso, testing_std)  # predicted class
 
-# Confusion matric
-confusionMatrix(data = as.factor(as.numeric(logit_std_l2_pred > 0.5)), 
-                reference = testing$CHURN)
+# Confusion matrix
+confusionMatrix(data = lasso_pred, reference = testing_std$CHURN, 
+                mode = "everything", positive = "X1")
+
+# ROC 
+(lasso_roc <- roc(testing_std$CHURN, lasso_pred_prob$X1))
+plot(lasso_roc)
+
+
+#' *Ridge logistic*
+set.seed(12345)
+ridge <- train(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
+               method = "glmnet", trControl = fitControl, metric = "ROC",
+               family = "binomial",
+               tuneGrid = expand.grid(.alpha = 0, 
+                                      .lambda = seq(0, 2, by = 0.05)))
+ridge
+
+# Coefficient of the final model. You need
+# to specify the best lambda
+coef(ridge$finalModel, ridge$bestTune$lambda)
+
+#' Variable importance
+ridge_varimp <- varImp(ridge)
+plot(ridge_varimp, main = "Variable Importance - Ridge")
+
+#' Prediction on testing dataset
+ridge_pred_prob <- predict(ridge, testing_std, type = "prob")  # predicted scores
+ridge_pred <- predict(ridge, testing_std)  # predicted class
+
+# Confusion matrix
+confusionMatrix(data = ridge_pred, reference = testing_std$CHURN, 
+                mode = "everything", positive = "X1")
+
+# ROC 
+(ridge_roc <- roc(testing_std$CHURN, ridge_pred_prob$X1))
+plot(ridge_roc)
+
+#' *Elastic net logistic*
+set.seed(12345)
+elastic <- train(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
+               method = "glmnet", trControl = fitControl, metric = "ROC",
+               family = "binomial",
+               tuneLength = 10)
+elastic
+
+# Coefficient of the final model. You need
+# to specify the best lambda
+coef(elastic$finalModel, elastic$bestTune$lambda)
+
+#' Variable importance
+elastic_varimp <- varImp(elastic)
+plot(elastic_varimp, main = "Variable Importance - Elastic")
+
+#' Prediction on testing dataset
+elastic_pred_prob <- predict(elastic, testing_std, type = "prob")  # predicted scores
+elastic_pred <- predict(elastic, testing_std)  # predicted class
+
+# Confusion matrix
+confusionMatrix(data = elastic_pred, reference = testing_std$CHURN, 
+                mode = "everything", positive = "X1")
+
+# ROC 
+(elastic_roc <- roc(testing_std$CHURN, elastic_pred_prob$X1))
+plot(elastic_roc)
+
