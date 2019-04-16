@@ -405,6 +405,10 @@ ada_pred_test_out <- cbind(ID = test_std$ID, Churn = ada_pred_test$X1)
 
 write.csv(ada_pred_test_out, "Output/adaboost.csv", row.names = F)
 
+#' Saving environment
+save.image(file = 'Training.RData')
+#load('Training.RData')
+
 #' *Extreme Gradient Boosting*
 modelLookup("xgbDART")
 cl <- makePSOCKcluster(10)
