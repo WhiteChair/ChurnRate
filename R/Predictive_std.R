@@ -120,14 +120,31 @@ plot(logit_varimp, main = "Variable Importance - Logit")
 #' Prediction on testing dataset
 logit_pred_prob <- predict(logit, testing_std, type = "prob")  # predicted scores
 logit_pred <- predict(logit, testing_std)  # predicted class
+head(cbind(logit_pred_prob,logit_pred), n = 60)
+# ROC 
+(logit_roc <- roc(testing_std$CHURN, logit_pred_prob$X1))
+par(pty = "s")
+plot(logit_roc, print.thres = "best")
 
 # Confusion matrix
 confusionMatrix(data = logit_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(logit_roc <- roc(testing_std$CHURN, logit_pred_prob$X1))
-plot(logit_roc)
+# aux = as.factor(as.numeric(logit_pred_prob$X1 > 0.448))
+#   levels(aux) <- make.names(levels(factor(aux)))
+#   length(aux)
+#   length(testing_std$CHURN)
+# confusionMatrix(data = aux, 
+#                 reference = testing_std$CHURN, mode = "everything", 
+#                 positive = "X1")
+
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(logit_pred_prob$X1 > 0.448)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
+
+?confusionMatrix
 
 
 #' *Lasso logistic*
@@ -446,14 +463,14 @@ xgb_pred_test_out <- cbind(ID = test_std$ID, Churn = xgb_pred_test$X1)
 
 write.csv(xgb_pred_test_out, "Output/XGB.csv", row.names = F)
 
-#' *Bayesian Neural Net*
-modelLookup("brnn")
+#' *Neural Net*
+modelLookup("nnet")
 cl <- makePSOCKcluster(10)
 registerDoParallel(cl)
 set.seed(12345)
 bnn <- train(CHURN ~ ., data = training_std[,-c(35, 36, 38)], 
-             method = "brnn", trControl = fitControl, metric = "ROC",
-             tuneLength = 5)
+             method = "nnet", trControl = fitControl, metric = "ROC",
+             tuneLength = 50)
 stopCluster(cl)
 bnn
 
@@ -463,7 +480,7 @@ plot(bnn)
 
 #' Variable importance
 bnn_varimp <- varImp(bnn)
-plot(bnn_varimp, main = "Variable Importance - Bayesian Neural Net")
+plot(bnn_varimp, main = "Variable Importance - Neural Net")
 
 #' Prediction on testing dataset
 bnn_pred_prob <- predict(bnn, testing_std, type = "prob")  # predicted scores
@@ -481,8 +498,8 @@ plot(bnn_roc)
 bnn_pred_test <- predict(bnn, test_std, type = "prob")  # predicted scores
 bnn_pred_test_out <- cbind(ID = test_std$ID, Churn = bnn_pred_test$X1)
 
-write.csv(bnn_pred_test_out, "Output/BayesianNN.csv", row.names = F)
+write.csv(bnn_pred_test_out, "Output/NN.csv", row.names = F)
 
 #' Saving environment
-save.image(file = 'Training.RData')
+#save.image(file = 'Training.RData')
 load('Training.RData')
