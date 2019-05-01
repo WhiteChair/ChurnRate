@@ -17,6 +17,7 @@ library(factoextra) # PCA
 library(pROC)
 library(glmnet) # Lasso and Ridge logistic
 library(doParallel)
+library(rpart.plot) # Plot decision tree
 
 #' Reading data
 training_std <- read.table("Data/train_sub_std_up.csv", sep = ",", dec = ".", 
@@ -144,8 +145,6 @@ confusionMatrix(data = as.factor(as.numeric(logit_pred_prob$X1 > 0.448)),
                 mode = "everything",
                 positive = "1")
 
-?confusionMatrix
-
 
 #' *Lasso logistic*
 #' http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/153-penalized-regression-essentials-ridge-lasso-elastic-net/#ridge-regression
@@ -172,13 +171,21 @@ plot(lasso_varimp, main = "Variable Importance - Lasso")
 lasso_pred_prob <- predict(lasso, testing_std, type = "prob")  # predicted scores
 lasso_pred <- predict(lasso, testing_std)  # predicted class
 
+# ROC 
+(lasso_roc <- roc(testing_std$CHURN, lasso_pred_prob$X1))
+par(pty = "s")
+plot(lasso_roc, print.thres = "best")
+
+
 # Confusion matrix
 confusionMatrix(data = lasso_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(lasso_roc <- roc(testing_std$CHURN, lasso_pred_prob$X1))
-plot(lasso_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(lasso_pred_prob$X1 > 0.443)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 
 #' *Ridge logistic*
@@ -202,13 +209,20 @@ plot(ridge_varimp, main = "Variable Importance - Ridge")
 ridge_pred_prob <- predict(ridge, testing_std, type = "prob")  # predicted scores
 ridge_pred <- predict(ridge, testing_std)  # predicted class
 
+# ROC 
+(ridge_roc <- roc(testing_std$CHURN, ridge_pred_prob$X1))
+par(pty = "s")
+plot(ridge_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = ridge_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(ridge_roc <- roc(testing_std$CHURN, ridge_pred_prob$X1))
-plot(ridge_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(ridge_pred_prob$X1 > 0.420)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 #' *Elastic net logistic*
 set.seed(12345)
@@ -230,13 +244,29 @@ plot(elastic_varimp, main = "Variable Importance - Elastic")
 elastic_pred_prob <- predict(elastic, testing_std, type = "prob")  # predicted scores
 elastic_pred <- predict(elastic, testing_std)  # predicted class
 
+# ROC 
+(elastic_roc <- roc(testing_std$CHURN, elastic_pred_prob$X1))
+par(pty = "s")
+plot(elastic_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = elastic_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(elastic_roc <- roc(testing_std$CHURN, elastic_pred_prob$X1))
-plot(elastic_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(elastic_pred_prob$X1 > 0.445)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
+
+# Plot of ROC of all models
+par(pty = "s")
+plot(logit_roc)
+plot(lasso_roc, add = T, col = "blue")
+plot(ridge_roc, add = T, col = "red")
+plot(elastic_roc, add = T, col = "green")
+legend("bottomright", legend = c("Logit", "Lasso", "Ridge", "Elastic"),
+       col = c("black", "blue", "red", "green"), lwd = 2)
 
 #' *Decision tree with complexity as tuning parameter*
 getModelInfo("rpart")
@@ -258,18 +288,26 @@ text(tree$finalModel, use.n. = TRUE, all = TRUE, cex = .8)
 #' Variable importance
 tree_varimp <- varImp(tree)
 plot(tree_varimp, main = "Variable Importance - Decision Tree (cp)")
+plot(tree_varimp)
 
 #' Prediction on testing dataset
 tree_pred_prob <- predict(tree, testing_std, type = "prob")  # predicted scores
 tree_pred <- predict(tree, testing_std)  # predicted class
 
+# ROC 
+(tree_roc <- roc(testing_std$CHURN, tree_pred_prob$X1))
+par(pty = "s")
+plot(tree_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = tree_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(tree_roc <- roc(testing_std$CHURN, tree_pred_prob$X1))
-plot(tree_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(tree_pred_prob$X1 > 0.207)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 
 #' *Decision tree with max depth as tuning parameter*
@@ -287,22 +325,39 @@ plot(tree2)
 # plot the model
 plot(tree2$finalModel, uniform = TRUE, main = "Decision Tree (max_depth)")
 text(tree2$finalModel, use.n. = TRUE, all = TRUE, cex = .8)
+rpart.plot(tree2$finalModel, type = 0, compress = F, ycompress = F, cex = 0.7)
+
 
 #' Variable importance
 tree2_varimp <- varImp(tree2)
 plot(tree2_varimp, main = "Variable Importance - Decision Tree (max_depth)")
+plot(tree2_varimp)
 
 #' Prediction on testing dataset
 tree2_pred_prob <- predict(tree2, testing_std, type = "prob")  # predicted scores
 tree2_pred <- predict(tree2, testing_std)  # predicted class
 
+# ROC 
+(tree2_roc <- roc(testing_std$CHURN, tree2_pred_prob$X1))
+par(pty = "s")
+plot(tree2_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = tree2_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(tree2_roc <- roc(testing_std$CHURN, tree2_pred_prob$X1))
-plot(tree2_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(tree2_pred_prob$X1 > 0.269)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
+
+# Plot of ROC of all models
+par(pty = "s")
+plot(tree_roc)
+plot(tree2_roc, add = T, col = "blue")
+legend("bottomright", legend = c("rpart", "rpart2"),
+       col = c("black", "blue"), lwd = 2)
 
 #' *Random Forest*
 modelLookup("rf")
@@ -328,13 +383,20 @@ plot(rf_varimp, main = "Variable Importance - Random Forest")
 rf_pred_prob <- predict(rf, testing_std, type = "prob")  # predicted scores
 rf_pred <- predict(rf, testing_std)  # predicted class
 
+# ROC 
+(rf_roc <- roc(testing_std$CHURN, rf_pred_prob$X1))
+par(pty = "s")
+plot(rf_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = rf_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(rf_roc <- roc(testing_std$CHURN, rf_pred_prob$X1))
-plot(rf_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(rf_pred_prob$X1 > 0.347)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 # Prediction on test set
 rf_pred_test <- predict(rf, test_std, type = "prob")  # predicted scores
@@ -365,24 +427,39 @@ rf2
 #' Variable importance
 rf2_varimp <- varImp(rf2)
 plot(rf2_varimp, main = "Variable Importance - Random Forest (size_var)")
+plot(rf2_varimp)
 
 #' Prediction on testing dataset
 rf2_pred_prob <- predict(rf2, testing_std, type = "prob")  # predicted scores
 rf2_pred <- predict(rf2, testing_std)  # predicted class
 
+# ROC 
+(rf2_roc <- roc(testing_std$CHURN, rf2_pred_prob$X1))
+par(pty = "s")
+plot(rf2_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = rf2_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(rf2_roc <- roc(testing_std$CHURN, rf2_pred_prob$X1))
-plot(rf2_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(rf2_pred_prob$X1 > 0.355)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 # Prediction on test set
 rf2_pred_test <- predict(rf2, test_std, type = "prob")  # predicted scores
 rf2_pred_test_out <- cbind(ID = test_std$ID, Churn = rf2_pred_test$X1)
 
 write.csv(rf2_pred_test_out, "Output/rf2.csv", row.names = F)
+
+# Plot of ROC of all models
+par(pty = "s")
+plot(rf_roc)
+plot(rf2_roc, add = T, col = "blue")
+legend("bottomright", legend = c("rf", "rf_thumb"),
+       col = c("black", "blue"), lwd = 2)
 
 
 #' *Adaboost*
@@ -403,18 +480,26 @@ plot(ada)
 #' Variable importance
 ada_varimp <- varImp(ada)
 plot(ada_varimp, main = "Variable Importance - Adaboost")
+plot(ada_varimp)
 
 #' Prediction on testing dataset
 ada_pred_prob <- predict(ada, testing_std, type = "prob")  # predicted scores
 ada_pred <- predict(ada, testing_std)  # predicted class
 
+# ROC 
+(ada_roc <- roc(testing_std$CHURN, ada_pred_prob$X1))
+par(pty = "s")
+plot(ada_roc, print.thres = "best")
+
 # Confusion matrix
 confusionMatrix(data = ada_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(ada_roc <- roc(testing_std$CHURN, ada_pred_prob$X1))
-plot(ada_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(ada_pred_prob$X1 > 0.423)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 # Prediction on test set
 ada_pred_test <- predict(ada, test_std, type = "prob")  # predicted scores
@@ -422,8 +507,12 @@ ada_pred_test_out <- cbind(ID = test_std$ID, Churn = ada_pred_test$X1)
 
 write.csv(ada_pred_test_out, "Output/adaboost.csv", row.names = F)
 
+# Plot of ROC of all models
+par(pty = "s")
+plot(ada_roc)
+
 #' Saving environment
-save.image(file = 'Training.RData')
+#save.image(file = 'Training.RData')
 #load('Training.RData')
 
 #' *Extreme Gradient Boosting*
@@ -444,18 +533,27 @@ plot(xgb)
 #' Variable importance
 xgb_varimp <- varImp(xgb)
 plot(xgb_varimp, main = "Variable Importance - XGB")
+plot(xgb_varimp)
 
 #' Prediction on testing dataset
 xgb_pred_prob <- predict(xgb, testing_std, type = "prob")  # predicted scores
 xgb_pred <- predict(xgb, testing_std)  # predicted class
 
+# ROC 
+(xgb_roc <- roc(testing_std$CHURN, xgb_pred_prob$X1))
+par(pty = "s")
+plot(xgb_roc, print.thres = "best")
+plot(xgb_roc)
+
 # Confusion matrix
 confusionMatrix(data = xgb_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(xgb_roc <- roc(testing_std$CHURN, xgb_pred_prob$X1))
-plot(xgb_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(xgb_pred_prob$X1 > 0.108)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 # Prediction on test set
 xgb_pred_test <- predict(xgb, test_std, type = "prob")  # predicted scores
@@ -476,23 +574,32 @@ bnn
 
 # ROC value under different tuning paramters
 trellis.par.set(caretTheme())
-plot(bnn) 
+plot(bnn, nameInStrip = F) 
 
 #' Variable importance
 bnn_varimp <- varImp(bnn)
 plot(bnn_varimp, main = "Variable Importance - Neural Net")
+plot(bnn_varimp)
 
 #' Prediction on testing dataset
 bnn_pred_prob <- predict(bnn, testing_std, type = "prob")  # predicted scores
 bnn_pred <- predict(bnn, testing_std)  # predicted class
 
+# ROC 
+(bnn_roc <- roc(testing_std$CHURN, bnn_pred_prob$X1))
+par(pty = "s")
+plot(bnn_roc, print.thres = "best")
+plot(bnn_roc)
+
 # Confusion matrix
 confusionMatrix(data = bnn_pred, reference = testing_std$CHURN, 
                 mode = "everything", positive = "X1")
 
-# ROC 
-(bnn_roc <- roc(testing_std$CHURN, bnn_pred_prob$X1))
-plot(bnn_roc)
+# Best Threshold
+confusionMatrix(data = as.factor(as.numeric(bnn_pred_prob$X1 > 0.201)), 
+                reference = as.factor(ifelse(testing_std$CHURN == "X0", 0, 1)),
+                mode = "everything",
+                positive = "1")
 
 # Prediction on test set
 bnn_pred_test <- predict(bnn, test_std, type = "prob")  # predicted scores
